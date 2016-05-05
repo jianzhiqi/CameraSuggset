@@ -12,13 +12,13 @@ import org.springframework.context.annotation.Configuration;
  * Created by Administrator on 2016/4/22.
  */
 @SpringBootApplication
-public class Application implements EmbeddedServletContainerCustomizer {
+public class Application {
     public static void main(String[] args) {
         SpringApplication.run(Application.class);
     }
 
-    @Override
-    public void customize(ConfigurableEmbeddedServletContainer container) {
-        container.setPort(8011);
-    }
+//    @Override
+//    public void customize(ConfigurableEmbeddedServletContainer container) {
+//        container.setPort(8011);
+//    }
 }

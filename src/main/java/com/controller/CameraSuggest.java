@@ -42,6 +42,9 @@ public class CameraSuggest {
     public String getSuggest(@RequestParam(value = "q", required = false) String q){
 
         JSONObject param = JSON.parseObject(q);
+        ORIGIN_LAT = Double.valueOf((String)param.getJSONObject("point").get("lat"));
+        ORIGIN_LON = Double.valueOf((String)param.getJSONObject("point").get("lon"));
+
         JSONObject json = new JSONObject(true);
         JSONArray jsonData = new JSONArray();
         Map<Long, ArrayList<String>> Bucket_top = new HashMap<>();
@@ -50,11 +53,11 @@ public class CameraSuggest {
 
         BoolQueryBuilder mustQuery = QueryBuilders.boolQuery().must(QueryBuilders.matchAllQuery());
         mustQuery = mustQuery
-                .must(QueryBuilders.matchPhraseQuery("description.res_type","point_place_area"));
+                .must(QueryBuilders.matchPhraseQuery("description.res_type", "point_place_area"));
 
         SearchRequestBuilder searchRequestBuilder = EsClientXJ.getClient().prepareSearch(Config.indexName_DS).setTypes(Config.typeName_DS)
                 .setQuery(mustQuery)
-                .setPostFilter(QueryBuilders.geoDistanceQuery("description.es_geo").point(43.7824466818091, 87.6150262712754).distance(200, DISTANCE_UNIT).optimizeBbox("memory").geoDistance(GeoDistance.ARC));
+                .setPostFilter(QueryBuilders.geoDistanceQuery("description.es_geo").point(ORIGIN_LAT, ORIGIN_LON).distance(200, DISTANCE_UNIT).optimizeBbox("memory").geoDistance(GeoDistance.ARC));
         SearchResponse searchResponse = searchRequestBuilder//分页起始位置（跳过开始的n个）
                 .setSize(100)//本次返回的文档数量
                 .execute().actionGet();//执行搜索
@@ -215,12 +218,25 @@ public class CameraSuggest {
                     jsonData.remove(i-1);
                 }
             }
+            JSONArray Camlist = new JSONArray();
+            for(Object jo:jsonData){
+                JSONObject item = (JSONObject)jo;
+                JSONArray cl = item.getJSONObject("description").getJSONArray("camera_list");
+                String camid = (String) cl.get(0);
+                mustQuery = QueryBuilders.boolQuery().must(QueryBuilders.matchAllQuery());
+                mustQuery = mustQuery
+                        .must(QueryBuilders.matchPhraseQuery("id", camid));
+
+                searchRequestBuilder = EsClientXJ.getClient().prepareSearch(Config.indexName_DS).setTypes(Config.typeName_DS)
+                        .setQuery(mustQuery);
+                searchResponse = searchRequestBuilder.execute().actionGet();//执行搜索
+                Camlist.add(JSONObject.parseObject(searchResponse.getHits().getAt(0).getSourceAsString()));
+            }
             json.put("statuscode", jsonData.size() > 0 ? "200" : "204");//data为空时 statuscode为204
             json.put("errmsg", "");
             json.put("took", searchResponse.getTook().getMillis());
-            json.put("total", 10);
-            json.put("realsize", searchResponse.getHits().hits().length);
-            json.put("data", jsonData);
+            json.put("total", Camlist.size());
+            json.put("data", Camlist);
             return json.toString();
         }
 
